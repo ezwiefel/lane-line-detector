@@ -1,56 +1,89 @@
-# **Finding Lane Lines on the Road** 
-[![Udacity - Self-Driving Car NanoDegree](https://s3.amazonaws.com/udacity-sdc/github/shield-carnd.svg)](http://www.udacity.com/drive)
+# Finding Lane Lines on the Road - Udacity Nanodegree for Self-Driving Engineer
 
-<img src="examples/laneLines_thirdPass.jpg" width="480" alt="Combined Image" />
-
-Overview
+The goals / steps of this project are the following:
+* Make a pipeline that finds lane lines on the road
+* Reflect on your work in a written report
 ---
+## Current Solution:
 
-When we drive, we use our eyes to decide where to go.  The lines on the road that show us where the lanes are act as our constant reference for where to steer the vehicle.  Naturally, one of the first things we would like to do in developing a self-driving car is to automatically detect lane lines using an algorithm.
+### 1. Code Structure
+First, in an effort to make the code reusable, I started a Python module to encapsulate the code created. The structure still needs work, but it's a start.
 
-In this project you will detect lane lines in images using Python and OpenCV.  OpenCV means "Open-Source Computer Vision", which is a package that has many useful tools for analyzing images.  
+### 2. Lane Finding Pipeline
+Next, I created the pipeline in a `LaneFinder` object. The pipeline method is `LaneFinder.find_lines()`. The pipeline consists of 8 basic steps (most of which were were taught in the videos).
 
-To complete the project, two files will be submitted: a file containing project code and a file containing a brief write up explaining your solution. We have included template files to be used both for the [code](https://github.com/udacity/CarND-LaneLines-P1/blob/master/P1.ipynb) and the [writeup](https://github.com/udacity/CarND-LaneLines-P1/blob/master/writeup_template.md).The code file is called P1.ipynb and the writeup template is writeup_template.md 
+1. [Calculate the region of interest (RI)](#21-region-of-interest-ri-shape)
+1. Convert to grayscale
+1. Blur the image slightly using gaussian blur
+1. Use `cv2.Canny` to find edges
+1. Select only the edges in the RI
+1. Use `cv2.HoughLinesP` to convert the canny edges to lines
+1. [Determine the left and right lane markers](#27-finding-left-and-right-lane-markers)
+1. [Extrapolate left and right markers](#28-extrapolate-left-and-right-markers)
 
-To meet specifications in the project, take a look at the requirements in the [project rubric](https://review.udacity.com/#!/rubrics/322/view)
+#### 2.1 Region of interest (RI) shape
+To calculate the RI, the assumptions were made that:
+- the RI starts in the lower corners of the image
+- the RI is a trapezoid - whose top segment is centered horizontally in the frame
+- the user specifies height of the RI and the width (in pixels) of the top line
+
+Using values of height = 200 px and top_width=150, here is an example of the RI:
+
+<img src="./media/vertices.jpg" width=300>
+
+#### 2.7 Finding Left and right lane markers
+In the region of interest, there will be many different hough-lines. To seperate the left and right lanes, the slope of each hough line was examined.
+
+A slope cutoff was used <img src="https://render.githubusercontent.com/render/math?math=m_{cutoff}"> - which defaults to 0.5. This slope cutoff was used to group hough lines into left, right and other lines.
+
+The equation used to group the lines was:
+
+<img src="https://render.githubusercontent.com/render/math?math=findlane%28m_%7Bobserved%7D%29%20%3D%5Cbegin%7Bcases%7Dleft%20%26%20if%20m_%7Bcutoff%7D%20%20%5Cleq%20m_%7Bobserved%7D%20%3C%20%5Cinfty%5C%5Cright%20%26%20if%20%7B-%5Cinfty%7D%20%20%3C%20m_%7Bobserved%7D%20%20%5Cleq%20%7B-m_%7Bcutoff%7D%7D%5C%5Cother%20%26%20%20%5Cend%7Bcases%7D">
+
+Infinity was used, because during a lane change, the slope will approach infinity (or negative infinity)
+
+#### 2.8 Extrapolate left and right markers
+
+In order to draw a single line on the left and right lanes, I modified the `draw_lines()` function by extrapolating the line bottom and line top - based on the average slope of the Hough lines grouped into left and right, and the line closest to the top of the RI
+
+I then extended the line to the top and bottom of the RI. This left one line on the right and one on the left.
+
+<img src="./test_images_output/solidWhiteCurve.jpg" width=300>
 
 
-Creating a Great Writeup
+## Video Performance
+Overall, the performance on the videos provided was acceptable, [but has room for improvement.](#potential-shortcomings)
+
+<video width="300" controls>
+  <source src="test_videos_output/solidWhiteRight.mp4">
+</video>
+
+## Challenge Performance
+To overcome the challenge scenario, the RI vertices were updated and some of the canny thresholds were updated as well. This led to decent - but not ideal performance. For example, at a few points during the video, the lanes are no longer found.
+
+<video width="300" controls>
+  <source src="./test_videos_output/challenge.mp4">
+</video>
+
 ---
-For this project, a great writeup should provide a detailed response to the "Reflection" section of the [project rubric](https://review.udacity.com/#!/rubrics/322/view). There are three parts to the reflection:
+## Looking Forward
 
-1. Describe the pipeline
+### Potential Shortcomings
 
-2. Identify any shortcomings
+This solution has many potential shortcomings.
 
-3. Suggest possible improvements
+A few examples:
+- what happens when lane markings disappear for a long period of time?
+- how will the solution handle lane changes?
+- what about curves?
+- what would happen on city streets, with turns, intersecting streets, and the like?
+- isn't it important to 'see' the other lanes - to allow for lane changes?
+- the "type" of lane isn't determined (solid white, double yellow, etc.)
 
-We encourage using images in your writeup to demonstrate how your pipeline works.  
+### Areas of Possible Improvement
 
-All that said, please be concise!  We're not looking for you to write a book here: just a brief description.
+The lanes found in the solution seem "choppy" with video. Since we're averaging the slope found only in frame `n`, the lanes appear jittery in the video.
 
-You're not required to use markdown for your writeup.  If you use another method please just submit a pdf of your writeup. Here is a link to a [writeup template file](https://github.com/udacity/CarND-LaneLines-P1/blob/master/writeup_template.md). 
+This solution completely overlooks the time-series nature of video. Most times, there will only be subtle changes of slope and lanes between frames. This logic could be used to improve the "smoothness" of the lines and decrease the times when lines aren't found.
 
-
-The Project
----
-
-## If you have already installed the [CarND Term1 Starter Kit](https://github.com/udacity/CarND-Term1-Starter-Kit/blob/master/README.md) you should be good to go!   If not, you should install the starter kit to get started on this project. ##
-
-**Step 1:** Set up the [CarND Term1 Starter Kit](https://github.com/udacity/CarND-Term1-Starter-Kit/blob/master/README.md) if you haven't already.
-
-**Step 2:** Open the code in a Jupyter Notebook
-
-You will complete the project code in a Jupyter notebook.  If you are unfamiliar with Jupyter Notebooks, check out [Udacity's free course on Anaconda and Jupyter Notebooks](https://classroom.udacity.com/courses/ud1111) to get started.
-
-Jupyter is an Ipython notebook where you can run blocks of code and see results interactively.  All the code for this project is contained in a Jupyter notebook. To start Jupyter in your browser, use terminal to navigate to your project directory and then run the following command at the terminal prompt (be sure you've activated your Python 3 carnd-term1 environment as described in the [CarND Term1 Starter Kit](https://github.com/udacity/CarND-Term1-Starter-Kit/blob/master/README.md) installation instructions!):
-
-`> jupyter notebook`
-
-A browser window will appear showing the contents of the current directory.  Click on the file called "P1.ipynb".  Another browser window will appear displaying the notebook.  Follow the instructions in the notebook to complete the project.  
-
-**Step 3:** Complete the project and submit both the Ipython notebook and the project writeup
-
-## How to write a README
-A well written README file can enhance your project and portfolio.  Develop your abilities to create professional README files by completing [this free course](https://www.udacity.com/course/writing-readmes--ud777).
-
+Additionally, we could use the lanes found in frame `n` to update the RI for frame `n+1`
